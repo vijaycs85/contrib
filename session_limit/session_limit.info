@@ -1,0 +1,14 @@
+name = Session Limit
+description = "Limit simultaneous user sessions."
+core = 7.x
+dependencies[] = trigger
+files[] = session_limit.install
+files[] = session_limit.module
+files[] = session_limit.tokens.inc
+
+; Information added by drupal.org packaging script on 2012-01-04
+version = "7.x-2.0-beta2"
+core = "7.x"
+project = "session_limit"
+datestamp = "1325687155"
+

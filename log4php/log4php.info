@@ -1,0 +1,14 @@
+name = Apache log4php
+description = Logs and records system events to <a href="http://logging.apache.org/log4php/">Apache log4php</a>.
+core = 7.x
+files[] = includes/LoggerRendererDrupalLogObject.inc
+files[] = includes/LoggerRendererDrupalPlainLocaleObject.inc
+files[] = includes/LoggerRendererDrupalPlainObject.inc
+files[] = includes/LoggerRendererDrupalStandardObject.inc
+
+
+; Information added by drush on 2013-11-05
+version = "b4cea4592ea383772ceab954787b2c2ec7974fca"
+project = "log4php"
+datestamp = "1383645811"
+

@@ -1,0 +1,10 @@
+name = "Content Copy Service"
+description = "Provides an interface to CCK's content copy module"
+dependencies = services content_copy
+package = Services - services
+
+; Information added by drush on 2013-11-05
+version = "unknown"
+project = "deploy"
+datestamp = "1383645844"
+

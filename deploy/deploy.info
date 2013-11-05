@@ -1,0 +1,11 @@
+name = Deployment
+description = "Framework to deploy Drupal data between servers"
+package = Deployment
+dependencies = services
+
+
+; Information added by drush on 2013-11-05
+version = "unknown"
+project = "deploy"
+datestamp = "1383645844"
+

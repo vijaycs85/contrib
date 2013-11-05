@@ -1,0 +1,149 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function flood_control_menu() {
+  $items['admin/config/system/flood-control'] = array(
+    'title' => 'Flood control',
+    'description' => 'Control flood control options for failed login attempts, contact forms, etc.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('flood_control_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'flood_control.admin.inc',
+  );
+
+  $items['admin/config/people/blocked-logins'] = array(
+    'title' => 'Blocked Logins',
+    'description' => 'View and remove failed login blocks from users and IP addresses',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('flood_control_blocked_form'),
+    'access arguments' => array('administer users'),
+    'file' => 'flood_control.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_variables().
+ */
+function flood_control_variables() {
+  return array(
+    'user_failed_login_ip_limit' => 50,
+    'user_failed_login_ip_window' => 3600,
+    'user_failed_login_user_limit' => 5,
+    'user_failed_login_user_window' => 21600,
+    'contact_threshold_limit' => 5,
+    'contact_threshold_window' => 3600,
+  );
+}
+
+/**
+ * Return header for blocked users form table.
+ *
+ * @return array
+ */
+function flood_control_blocked_users_header() {
+  return array('name' => t('User Name'), 'attempts' => t('Failed attempts'), 'last_attempt' => t('Last Failed Attempt'));
+}
+
+/**
+ * Return list of users who are temporarily blocked from logging in.
+ *
+ * @return array
+ */
+function flood_control_blocked_users() {
+  $flood_users = array();
+  $user_limit = variable_get('user_failed_login_user_limit', 5);
+  $user_window = variable_get('user_failed_login_user_window', 21600);
+
+  // Retrieve the failed login attempt records.
+  $query = db_select('flood', 'f');
+  $query->fields('f',array('identifier', 'timestamp'))
+        ->condition('event', 'failed_login_attempt_user', '=')
+        ->condition('timestamp', REQUEST_TIME - $user_window, '>')
+        ->orderBy('identifier', 'ASC');
+  $result = $query->execute();
+
+  // Now parse the results and find out which users are over the limit.
+  while ($record = $result->fetchAssoc()) {
+    $uid = (int) strtok($record['identifier'], '-');
+    if (!isset($flood_users[$uid])) {
+      $flood_users[$uid] = array('attempts' => 1, 'last_attempt' => $record['timestamp']);
+    }
+    else {
+      $flood_users[$uid]['attempts']++;
+      if ($flood_users[$uid]['last_attempt'] < $record['timestamp']) {
+        $flood_users[$uid]['last_attempt'] = $record['timestamp'];
+      }
+    }
+  }
+
+  $blocked_users = array();
+
+  foreach ($flood_users as $uid => $flood_user) {
+    if ($flood_user['attempts'] > $user_limit) {
+      // This user is blocked!
+      $account = user_load($uid);
+      $last_attempt = format_date($flood_user['last_attempt']);
+      $blocked_users[$uid] = array('name' => $account->name, 'attempts' => $flood_user['attempts'], 'last_attempt' => $last_attempt);
+    }
+  }
+
+  return($blocked_users);
+}
+
+/**
+ * Return header for blocked IPs form table.
+ *
+ * @return array
+ */
+function flood_control_blocked_ips_header() {
+  return array('ip' => t('IP address'), 'attempts' => t('Failed attempts'), 'last_attempt' => t('Last Failed Attempt'));
+}
+
+/**
+ * Return list of ips that are temporarily blocked from logging in.
+ *
+ * @return array
+ */
+function flood_control_blocked_ips() {
+  $flood_ips = array();
+  $ip_limit = variable_get('user_failed_login_ip_limit', 50);
+  $ip_window = variable_get('user_failed_login_ip_window', 3600);
+
+  // Retrieve the failed login attempt records.
+  $query = db_select('flood', 'f');
+  $query->fields('f',array('identifier','timestamp'))
+        ->condition('event', 'failed_login_attempt_ip', '=')
+        ->condition('timestamp', REQUEST_TIME - $ip_window, '>')
+        ->orderBy('identifier', 'ASC');
+  $result = $query->execute();
+
+  // Now parse the results and find out which users are over the limit.
+  while ($record = $result->fetchAssoc()) {
+    $ip = $record['identifier'];
+    if (!isset($flood_ips[$ip])) {
+      $flood_ips[$ip] = array('attempts' => 1, 'last_attempt' => $record['timestamp']);
+    }
+    else {
+      $flood_ips[$ip]['attempts']++;
+      if ($flood_ips[$ip]['last_attempt'] < $record['timestamp']) {
+        $flood_ips[$ip]['last_attempt'] = $record['timestamp'];
+      }
+    }
+  }
+
+  $blocked_ips = array();
+
+  foreach ($flood_ips as $ip => $flood_ip) {
+    if ($flood_ip['attempts'] > $ip_limit) {
+      // This IP is blocked!
+      $last_attempt = format_date($flood_ip['last_attempt']);
+      $blocked_ips[$ip] = array('ip' => $ip, 'attempts' => $flood_ip['attempts'], 'last_attempt' => $last_attempt);
+    }
+  }
+
+  return($blocked_ips);
+}

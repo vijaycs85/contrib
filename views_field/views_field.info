@@ -1,0 +1,16 @@
+name = Views Field
+description = Defines selected field tables as base tables to views.
+package = Fields
+version = VERSION
+core = 7.x
+dependencies[] = field
+dependencies[] = views
+files[] = views_field.join.inc
+;files[] = views_field.test
+
+
+; Information added by drush on 2013-11-05
+version = "7fc4f0ceaefe378346a621462bc0ea8e84bb414c"
+project = "views_field"
+datestamp = "1383645815"
+

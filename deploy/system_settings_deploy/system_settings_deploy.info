@@ -1,0 +1,10 @@
+name = "Deploy System Settings"
+description = "Deploy system settings using the Deployment framework"
+dependencies = deploy
+package = Deployment
+
+; Information added by drush on 2013-11-05
+version = "unknown"
+project = "deploy"
+datestamp = "1383645844"
+

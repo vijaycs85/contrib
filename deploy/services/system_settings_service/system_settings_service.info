@@ -1,0 +1,10 @@
+name = "System Settings Service"
+description = "Provides an interface to system settings"
+dependencies = services
+package = Services - services
+
+; Information added by drush on 2013-11-05
+version = "unknown"
+project = "deploy"
+datestamp = "1383645844"
+

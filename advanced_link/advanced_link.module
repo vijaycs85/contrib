@@ -1,0 +1,201 @@
+<?php
+
+/**
+ * @file
+ * Defines simple advanced_link widget.
+ */
+
+define('ADVANCED_LINK_EXTERNAL', 'external');
+define('ADVANCED_LINK_INTERNAL', 'internal');
+define('ADVANCED_LINK_BOTH', 'both');
+
+/**
+ * Implements hook_menu().
+ */
+function advanced_link_menu() {
+  $items = array();
+
+  $items['advanced_link/autocomplete'] = array(
+    'page callback' => 'advanced_link_autocomplete',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Menu callback for autocomplete.
+ */
+function advanced_link_autocomplete($string = '') {
+  $matches = advanced_link_url_load($string);
+  if (!$matches) {
+    $matches[''] = t('No matching results.');
+  }
+  drupal_json_output($matches);
+}
+
+/**
+ * Loads list of matching URLs.
+ *
+ * @param string $string
+ *   Searchable url string.
+ */
+function advanced_link_url_load($string = NULL) {
+  if ($string) {
+    $urls_list = array();
+
+    $result = db_select('node', 'node')
+      ->fields('node', array('title', 'language', 'nid'))
+      ->condition('node.title', db_like($string) . '%', 'LIKE')
+      ->range(0, 10)->execute();
+
+    foreach ($result as $record) {
+      $url = 'node/' . $record->nid;
+      $urls_list[$url] = $record->title . ' (' . $record->language . ')';
+    }
+
+    return $urls_list;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function advanced_link_field_widget_info() {
+  return array(
+    'advanced_link' => array(
+      'label' => t('Advanced Link'),
+      'field types' => array('link_field'),
+      'multiple values' => FIELD_BEHAVIOR_NONE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function advanced_link_field_widget_settings_form($field, $instance) {
+  $form = array();
+  $widget = $instance['widget'];
+  $settings = $widget['settings'];
+  $form['urls_allowed'] = array(
+    "#weight" => -10,
+    '#type' => 'radios',
+    '#title' => t('URLs allowed'),
+    '#options' => array(
+      ADVANCED_LINK_INTERNAL => t('Allowed only internal.'),
+      ADVANCED_LINK_EXTERNAL => t('Allowed only external.'),
+      ADVANCED_LINK_BOTH => t('Allowed both (external and internal).'),
+    ),
+    '#default_value' => isset($settings['urls_allowed']) ? $settings['urls_allowed'] : ADVANCED_LINK_BOTH,
+    '#description' => t('More filtering options can be found in "URLs filter" textfield.'),
+  );
+  $filter_description = t("Enter one page per line as Drupal paths or only another external. Note, that filtering applies to any 'URLs allowed' mode.   The '*' character is a wildcard. Example paths are blog for the <em>blog</em> page and blog/* for every personal blog. %front is the front page.", array('%front' => '<front>'));
+  $form['urls_filter'] = array(
+    "#weight" => -9,
+    '#type' => 'textarea',
+    '#title' => t('URLs filter'),
+    '#default_value' => isset($settings['urls_filter']) ? $settings['urls_filter'] : '',
+    '#description' => $filter_description,
+  );
+  return $form;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function advanced_link_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $element += array(
+    '#type' => $instance['widget']['type'],
+    '#field' => array(
+      'widget' => array(
+        'settings' => array(
+          'urls_allowed' => $instance['widget']['settings']['urls_allowed'],
+          'urls_filter' => $instance['widget']['settings']['urls_filter'],
+        ),
+      ),
+    ),
+    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
+  );
+  return $element;
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function advanced_link_element_info() {
+  $elements = array();
+  $elements['advanced_link'] = array(
+    '#input' => TRUE,
+    '#process' => array('advanced_link_field_process'),
+    '#theme' => 'advanced_link',
+    '#theme_wrappers' => array('form_element'),
+  );
+  return $elements;
+}
+
+/**
+ * Create element array
+ */
+function advanced_link_field_process($element, $form_state, $complete_form) {
+  $element      = link_field_process($element, $form_state, $complete_form);
+  $urls_allowed = $element['#field']['widget']['settings']['urls_allowed'];
+
+  if (($urls_allowed != ADVANCED_LINK_EXTERNAL) && user_access('administer nodes')) {
+    $element['url']['#autocomplete_path'] = 'advanced_link/autocomplete';
+  }
+  $element['url']['#element_validate'] = array('advanced_link_widget_url_validate');
+  $element['url']['#field']['widget']['urls_allowed'] = $urls_allowed;
+  $element['url']['#field']['widget']['urls_filter'] = $element['#field']['widget']['settings']['urls_filter'];
+
+  return $element;
+}
+
+/**
+ * Validate typed values
+ */
+function advanced_link_widget_url_validate($element, &$form_state) {
+  $urls_allowed = (isset($element['#field']['widget']['urls_allowed'])) ? $element['#field']['widget']['urls_allowed'] : ADVANCED_LINK_BOTH;
+  $urls_filter  = (isset($element['#field']['widget']['urls_filter'])) ? trim($element['#field']['widget']['urls_filter']) : NULL;
+  $url          = $element['#value'];
+
+  if ($url) {
+    // Gettings link type (internal, external)
+    if ($urls_allowed != ADVANCED_LINK_BOTH) {
+      $type = link_validate_url($url);
+      if ($type != $urls_allowed) {
+        form_set_error(implode('][', $element['#parents']), t('URLs need to be @url_allowed', array('@url_allowed' => drupal_strtoupper($urls_allowed))));
+      }
+    }
+    // Checking link URL by URL filter patterns.
+    if ($urls_filter) {
+      $match = drupal_match_path($url, $urls_filter);
+      if (!$match) {
+        form_set_error(implode('][', $element['#parents']), t("You can't use such URLs."));
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function advanced_link_theme() {
+  return array(
+    'advanced_link' => array(
+      'render element' => 'element',
+    ),
+  );
+}
+
+/**
+ * FAPI theme for an individual text elements.
+ */
+function theme_advanced_link($vars) {
+  return theme_link_field($vars);
+}

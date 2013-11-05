@@ -1,0 +1,15 @@
+name = jQuery Update
+description = Update jQuery and jQuery UI to a more recent version.
+package = User interface
+core = 7.x
+files[] = jquery_update.module
+files[] = jquery_update.install
+
+configure = admin/config/development/jquery_update
+
+
+; Information added by drush on 2013-11-05
+version = "dd3d76ea2726471a489380fcc7a00a1d65f9be16"
+project = "jquery_update"
+datestamp = "1383645836"
+
